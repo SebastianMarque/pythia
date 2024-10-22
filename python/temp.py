@@ -243,7 +243,7 @@ def append(This,ToThat):
 
 
 
-def branch( phi , z,  pT2 , begin_event,  begin_dipEnd ):
+def branch( phi , z,  pT2 , begin_event,  begin_dipEnd , side):
       
     ################### VARIABLES DEF
     
@@ -253,19 +253,28 @@ def branch( phi , z,  pT2 , begin_event,  begin_dipEnd ):
     x1       = begin_event[3]['momentum']['e'] / begin_event[1]['momentum']['e']
     x2       = begin_event[4]['momentum']['e'] / begin_event[2]['momentum']['e']
     mII      = begin_event[5]['momentum']['m']
-    m2Sister = begin_event[3]['momentum']['m']
+    m2Sister = 0.0 if side == 1 else 2.25
     m2II     = mII**2
     m2Dip    = m2II
-    sideSign = 1.0
-    Q2       = pT2 / (1. - z);
+    sideSign = 1 if side == 1 else -1
+    Q2       =  pT2 / (1. - z) if side == 1 else pT2 / (1. - z) - m2Sister
     pT2corr  = Q2 - z * (m2Dip + Q2) * (Q2 + m2Sister) / m2Dip
-    xMo      = x1/z
-    x1New    = xMo
-    x2New    = x2
-    
-
-    
-    
+    xMo      = x1/z   if  side == 1 else x2/z
+    x1New    = xMo    if  side == 1 else x1
+    x2New    = xMo    if  side == 2 else x2
+    # print("x1 =", x1)
+    # print("x2 =", x2)
+    # print("mII =", mII)
+    # print('z = ', z)
+    # print("m2Sister =", m2Sister)
+    # print("m2II =", m2II)
+    # print("m2Dip =", m2Dip)
+    # print("sideSign =", sideSign)
+    # print("Q2 =", Q2)
+    # print("pT2corr =", pT2corr)
+    # print("xMo =", xMo)
+    # print("x1New =", x1New)
+    # print("x2New =", x2New)
     
     # // Kinematics for II dipole.
     # // Construct kinematics of mother, sister and recoiler in old rest frame.
@@ -334,7 +343,6 @@ def branch( phi , z,  pT2 , begin_event,  begin_dipEnd ):
     Mtot        = bst(Mtot, 0.0 , 0.0 , (x2-x1) / (x1+x2) )
     Mtot        = rot(Mtot,0,-phi)
     
-    
     MfromRest   = np.eye(4)
     
     sumNew      =  pMother + pNewRec
@@ -342,18 +350,16 @@ def branch( phi , z,  pT2 , begin_event,  begin_dipEnd ):
     betaX       = px(sumNew) / e(sumNew);
     betaZ       = pz(sumNew) / e(sumNew);
     
+
     MfromRest   = bst(MfromRest, -betaX, 0., -betaZ);
     
     pMother     = rotbst(pMother, MfromRest)
-    
-    theta       = Theta(pMother)
-    
+    theta       = Theta(pMother) if side == 1 else Theta(pMother) + math.pi
+
     
     MfromRest   = rot(MfromRest, -theta, phi)
     
-    
-    MfromRest   = bst( MfromRest,0., 0., (x1New - x2New) / (x1New + x2New) )
-    
+    MfromRest   = bst( MfromRest,0., 0., (x1New - x2New) / (x1New + x2New) )    
     
     Mtot        = rotbst(Mtot       , MfromRest)
     
@@ -369,9 +375,23 @@ def branch( phi , z,  pT2 , begin_event,  begin_dipEnd ):
     sister      = rotbst(sister      , MfromRest)
     event[9]    = rotbst(event[9]    , MfromRest)
     
-    
+
     
     event[8]    = rotbst(event[8]   , Mtot)
+    
+    # calculate masses and total momemtun
+    # stack mass and total mommtun into the event array
+    
+    total_mom  =  np.zeros(4)
+    total_mom  =  event[-1] + event[-2]
+    event      =  np.vstack((event,total_mom))
+    MASS       =  np.zeros((np.size(event[:,0]),1))  
+
+    for i in range(np.size(event[:,0])):
+        MASS[i]   = m(event[i])
+    
+    event = np.hstack((event,MASS))
+        
     
     return event
     
@@ -386,10 +406,12 @@ variables = read_random_numbers('random_numbers.txt')
 phi = variables.get('phi')
 z = variables.get('z')
 pT2 = variables.get('pT2')
+side = int(variables.get('side'))
 
-e = branch(phi,z,pT2,begin_event,begin_dipEnd)
+event = branch(phi,z,pT2,begin_event,begin_dipEnd, side)
 
 #%%
+
 
 
 
