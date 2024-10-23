@@ -98,7 +98,7 @@ def read_random_numbers(filename):
           
     return variables
 
-def event_dict_to_numpy(event_dict):
+def dict_to_array(event_dict):
   
     # Determine the number of particles in the event
     num_particles = len(event_dict)
@@ -112,6 +112,9 @@ def event_dict_to_numpy(event_dict):
                           particle_data['momentum']['p_z'], particle_data['momentum']['e']])
     
     return event_array
+
+# def compare(end_event,my_event):
+    
 
 
 
@@ -200,6 +203,12 @@ def p(xx,yy,zz,tt, vec4):
 def m(vec4):
     
     return np.sqrt( -vec4[0]**2 - vec4[1]**2 - vec4[2]**2 + vec4[3]**2 )
+
+def dot(v1,v2):
+    
+    DOT = -v1[0]*v2[0] - v1[1]*v2[1] - v1[2]*v2[2] + v1[3]*v2[3]
+    
+    return DOT
 
 
 def transpose_all(): # function to turn my vectors into co-vectors such that they
@@ -301,7 +310,7 @@ def branch( phi , z,  pT2 , begin_event,  begin_dipEnd , side):
     
     
 
-    event     = event_dict_to_numpy(begin_event)
+    event     = dict_to_array(begin_event)
 
     #### 
     event    = np.vstack((event, np.copy(event[3])))
@@ -379,16 +388,13 @@ def branch( phi , z,  pT2 , begin_event,  begin_dipEnd , side):
     
     event[8]    = rotbst(event[8]   , Mtot)
     
-    # calculate masses and total momemtun
-    # stack mass and total mommtun into the event array
-    
-    total_mom  =  np.zeros(4)
-    total_mom  =  event[-1] + event[-2]
-    event      =  np.vstack((event,total_mom))
+
     MASS       =  np.zeros((np.size(event[:,0]),1))  
 
     for i in range(np.size(event[:,0])):
         MASS[i]   = m(event[i])
+        
+    print(m(event[9]))
     
     event = np.hstack((event,MASS))
         
@@ -397,20 +403,57 @@ def branch( phi , z,  pT2 , begin_event,  begin_dipEnd , side):
     
 #%%
 
+margin = 1e-13
+count  = 0
 
+lst   = []
 
-begin_event = read_pythia_event('begin_event.txt')
-begin_dipEnd = read_pythia_dipole('begin_dipole.txt')
-variables = read_random_numbers('random_numbers.txt')
+for i in range(1,2001):
+    
 
-phi = variables.get('phi')
-z = variables.get('z')
-pT2 = variables.get('pT2')
-side = int(variables.get('side'))
+    begin_event = read_pythia_event('begin_event' + str(i) +'.txt')
+    end_event   = read_pythia_event('end_event'   + str(i) +'.txt')
+    
+    
+    begin_dipEnd = read_pythia_dipole('begin_dipole.txt')
+    variables = read_random_numbers('random_numbers'+ str(i) +'.txt')
+    
+    phi = variables.get('phi')
+    z = variables.get('z')
+    pT2 = variables.get('pT2')
+    side = int(variables.get('side'))
+    
+    
+    my_event  = branch(phi,z,pT2,begin_event,begin_dipEnd, side)
+    end_event = dict_to_array(end_event)
+    
+    my_total      = my_event[9,0:4] + my_event[8,0:4]
+    pythia_total  = end_event[9,0:4] + end_event[8,0:4]
+    
+    compare       = np.sqrt(dot(my_total, pythia_total))
+    
+    if (np.abs(compare - m(pythia_total)) < margin):
+        count += 1
+    else:
+        lst.append(side)
+        
 
-event = branch(phi,z,pT2,begin_event,begin_dipEnd, side)
+    
+
+    
+  
+    
+    
+    
 
 #%%
+
+count2 = 0
+
+for i in lst:
+    if i == 2:
+        count2 += 1
+
 
 
 
